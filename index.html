@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operator</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODALS
+═══════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="modal-confirm">
+  <div class="modal">
+    <h3 id="mc-title">Confirm</h3>
+    <p id="mc-body">Are you sure?</p>
+    <div class="modal-actions">
+      <button class="btn btn-sm" onclick="MC.cancel()">Cancel</button>
+      <button class="btn btn-sm btn-danger" id="mc-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-prompt">
+  <div class="modal">
+    <h3 id="mp-title">Enter value</h3>
+    <p id="mp-body" style="margin-bottom:8px"></p>
+    <div class="field"><input type="text" id="mp-input" style="margin-top:4px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-sm" onclick="MP.cancel()">Cancel</button>
+      <button class="btn btn-sm btn-accent" onclick="MP.ok()">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-admin-field">
+  <div class="modal modal-lg">
+    <h3 id="maf-title">Add Field</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div class="field"><span class="field-label">Label</span><input type="text" id="maf-label" placeholder="Field name"></div>
+      <div class="field"><span class="field-label">Type</span>
+        <select id="maf-type">
+          <option value="text">Text (single line)</option>
+          <option value="textarea">Textarea (multi-line)</option>
+          <option value="checkbox">Checkbox</option>
+          <option value="number">Number</option>
+          <option value="date">Date</option>
+          <option value="select">Dropdown / Select</option>
+          <option value="progress">Progress (0–100%)</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" id="maf-options-wrap" style="display:none;margin-bottom:12px">
+      <span class="field-label">Options (comma-separated)</span>
+      <input type="text" id="maf-options" placeholder="Option A, Option B, Option C">
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <span class="field-label">Placeholder / Help text</span>
+      <input type="text" id="maf-placeholder" placeholder="Optional hint">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-sm" onclick="MAF.cancel()">Cancel</button>
+      <button class="btn btn-sm btn-accent" onclick="MAF.ok()">Add Field</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-nap">
+  <div class="modal">
+    <h3>Nap</h3>
+    <div class="grid-2" style="gap:12px;margin-bottom:4px">
+      <div class="field"><span class="field-label">Start</span><input type="time" id="mn-start"></div>
+      <div class="field"><span class="field-label">End</span><input type="time" id="mn-end"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-sm btn-danger" id="mn-remove" onclick="removeNap()" style="margin-right:auto">Remove</button>
+      <button class="btn btn-sm" onclick="MN.cancel()">Cancel</button>
+      <button class="btn btn-sm" onclick="saveNap()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TOP BAR
+═══════════════════════════════════════════════════════════ -->
+<div id="topbar">
+  <div id="topbar-left">
+    <span class="app-wordmark" id="app-wordmark-text">Operator</span>
+  </div>
+  <div id="tab-bar"><!-- injected by renderTabBar() --></div>
+  <div id="topbar-right">
+    <div class="save-indicator">
+      <div class="save-dot" id="save-dot"></div>
+      <span id="save-label">—</span>
+    </div>
+    <button class="btn btn-sm" onclick="toggleTheme()" id="theme-btn" title="Toggle theme">☀</button>
+  </div>
+</div>
+
+<!-- SUBHEADER -->
+<div id="subheader">
+  <div class="date-nav">
+    <button class="btn btn-nav" onclick="navDay(-1)">‹</button>
+    <span class="date-display" id="date-display">—</span>
+    <button class="btn btn-nav" onclick="navDay(1)">›</button>
+    <button class="btn btn-sm" onclick="goToday()">Today</button>
+  </div>
+  <span id="day-status-badge" class="s-miss">— miss</span>
+  <div id="subheader-right">
+    <button class="btn btn-sm" onclick="showBackupMenu()" title="Backup / Export">⇅ Backup</button>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB PANELS
+═══════════════════════════════════════════════════════════ -->
+
+<!-- ── PLANNER TAB ── -->
+<div class="tab-panel" id="panel-planner">
+<div class="page-wrap">
+
+  <!-- Status row -->
+  <div id="status-row">
+    <div id="sr-badge" class="s-miss">— miss</div>
+    <div class="status-detail" id="sr-detail">Complete the baseline to upgrade your day.</div>
+    <div style="flex:1"></div>
+    <div class="bl-prog">
+      <div class="bl-dots" id="bl-dots"></div>
+      <span id="bl-count">0/0</span>
+    </div>
+    <label class="inline-toggle" onclick="toggleSalvage()">
+      <div class="tog-track" id="salvage-track"><div class="tog-thumb"></div></div>
+      <span class="tog-label">Salvage</span>
+    </label>
+  </div>
+
+  <!-- Quick Note -->
+  <div class="card" style="margin-top:10px;">
+    <div class="card-body" style="padding:10px 14px;">
+      <span class="field-label" style="display:block;margin-bottom:6px;">Quick Note</span>
+      <textarea id="quick-note" rows="2" placeholder="Jot something down…" style="width:100%;resize:vertical;" oninput="localStorage.setItem('quickNote',this.value)"></textarea>
+    </div>
+  </div>
+
+  <!-- Salvage section -->
+  <div id="sec-salvage" style="display:none;" class="card">
+    <div class="salvage-banner">⚡ Recovery mode — containment, not perfection.</div>
+    <div class="card-body">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <p class="help-text">A salvage day beats a write-off. Reduced bar, same discipline.</p>
+        <button class="btn btn-sm btn-accent" onclick="addSalvageItem()" style="flex-shrink:0;margin-left:10px">+ Add</button>
+      </div>
+      <div id="salvage-checklist"></div>
+      <div class="field" style="margin-top:11px">
+        <span class="field-label">Salvage Notes</span>
+        <textarea id="salvage-notes" placeholder="What happened. What you managed. Good enough." rows="2" oninput="saveField('salvageNotes',this.value)"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Baseline Checklist -->
+  <div class="card" id="card-baseline">
+    <div class="card-header" onclick="toggleCard('baseline')">
+      <div class="card-title"><div class="card-title-dot"></div><span id="lbl-baseline">Baseline Checklist</span></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-sm btn-accent" onclick="event.stopPropagation();addBaselineItem()">+ Add</button>
+        <span class="card-toggle" id="caret-baseline">▾</span>
+      </div>
+    </div>
+    <!-- Pill row — always visible -->
+    <div id="baseline-pill-row" style="padding:8px 15px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:5px;min-height:36px"></div>
+    <!-- Checklist — collapsed by default -->
+    <div class="card-body collapsed" id="body-baseline">
+      <div id="baseline-checklist"></div>
+    </div>
+  </div>
+
+  <!-- Core Goal Progress -->
+  <div class="card">
+    <div class="card-header" onclick="toggleCard('goal')">
+      <div class="card-title"><div class="card-title-dot"></div><span id="lbl-goal">Core Goal Progress</span></div>
+      <span class="card-toggle" id="caret-goal">▾</span>
+    </div>
+    <div class="card-body collapsed" id="body-goal">
+      <div class="field" style="margin-bottom:11px">
+        <span class="field-label">Goal Category</span>
+        <select id="goal-category" onchange="saveField('goal.category',this.value);updateGoalHelp(this.value)">
+          <option value="">— select goal</option>
+        </select>
+      </div>
+      <div id="goal-help" class="help-text" style="margin-bottom:11px"></div>
+      <div class="grid-2" style="margin-bottom:11px">
+        <div class="field"><span class="field-label">Today's Task</span><input type="text" id="goal-task" placeholder="Specific task for this session" oninput="saveField('goal.task',this.value)"></div>
+        <div class="field"><span class="field-label">Tangible Progress Target</span><input type="text" id="goal-target" placeholder="What done looks like" oninput="saveField('goal.target',this.value)"></div>
+      </div>
+      <div class="field" style="margin-bottom:11px"><span class="field-label">Tangible Progress Made</span><input type="text" id="goal-made" placeholder="What you actually produced or changed" oninput="saveField('goal.made',this.value)"></div>
+      <div class="field" style="margin-bottom:11px"><span class="field-label">Work Log</span><textarea id="goal-log" placeholder="What happened during the session. Keep it honest." oninput="saveField('goal.log',this.value)"></textarea></div>
+      <div class="field" style="margin-bottom:13px"><span class="field-label">Next Step for Tomorrow</span><input type="text" id="goal-next" placeholder="One line. Where you pick up." oninput="saveField('goal.next',this.value)"></div>
+      <!-- Explicit completion -->
+      <div class="divider"></div>
+      <label class="chk" id="goal-done-chk" style="margin-bottom:13px"><input type="checkbox" onchange="saveCheck('goal.done',this.checked);updateDayStatus()"><div class="chk-box"><div class="chk-tick"></div></div><span class="chk-lbl">Core Goal Progress completed for today</span><span class="chk-note">Ideal day trigger</span></label>
+      <!-- Timer -->
+      <div class="timer-row">
+        <span class="field-label" style="min-width:90px">Session Timer</span>
+        <input type="number" id="goal-timer-duration" min="1" max="480" value="60" style="width:65px" title="Duration in minutes">
+        <span class="help-text" style="margin:0">min</span>
+        <div id="goal-timer-display" class="timer-display">—</div>
+        <button class="btn btn-sm btn-accent" id="goal-timer-btn" onclick="toggleGoalTimer()">Start</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Software Mastery Block -->
+  <div class="card" id="sec-software">
+    <div class="card-header" onclick="toggleCard('software')">
+      <div class="card-title"><div class="card-title-dot"></div><span id="lbl-software">Software Mastery Block</span></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-sm btn-accent" onclick="event.stopPropagation();addSoftwareOption()">+ Add</button>
+        <span class="card-toggle" id="caret-software">▾</span>
+      </div>
+    </div>
+    <div class="card-body collapsed" id="body-software">
+      <p class="help-text" style="margin-bottom:11px">Optional dedicated block — separate from the project block. Completing this upgrades the day to a Win.</p>
+      <label class="chk" id="sw-done" style="margin-bottom:11px"><input type="checkbox" onchange="saveCheck('software.done',this.checked);updateDayStatus()"><div class="chk-box"><div class="chk-tick"></div></div><span class="chk-lbl">Software mastery block completed</span><span class="chk-note">Win day trigger</span></label>
+      <div style="margin-bottom:11px">
+        <span class="field-label" style="display:block;margin-bottom:6px">Software — double-click chip to rename</span>
+        <div class="sw-chips" id="sw-chips"></div>
+      </div>
+      <div class="field" style="margin-bottom:13px"><span class="field-label">Session Notes</span><textarea id="sw-notes" placeholder="What you practiced, learned, or built." oninput="saveField('software.notes',this.value)"></textarea></div>
+      <!-- Timer -->
+      <div class="divider"></div>
+      <div class="timer-row">
+        <span class="field-label" style="min-width:90px">Session Timer</span>
+        <input type="number" id="sw-timer-duration" min="1" max="480" value="60" style="width:65px" title="Duration in minutes">
+        <span class="help-text" style="margin:0">min</span>
+        <div id="sw-timer-display" class="timer-display">—</div>
+        <button class="btn btn-sm btn-accent" id="sw-timer-btn" onclick="toggleSwTimer()">Start</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- To-Do List -->
+  <div class="card">
+    <div class="card-header" onclick="toggleCard('todos')">
+      <div class="card-title"><div class="card-title-dot blue"></div>To-Do</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-sm btn-accent" onclick="event.stopPropagation();addTodo()">+ Add</button>
+        <span class="card-toggle" id="caret-todos">▾</span>
+      </div>
+    </div>
+    <div class="card-body collapsed" id="body-todos">
+      <div id="todo-list"></div>
+    </div>
+  </div>
+
+  <!-- Weekly Review -->
+  <div class="card" id="sec-week">
+    <div class="card-header" onclick="toggleCard('week')">
+      <div class="card-title"><div class="card-title-dot blue"></div>Weekly Review</div>
+      <span class="card-toggle" id="caret-week">▾</span>
+    </div>
+    <div class="card-body collapsed" id="body-week">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <span class="help-text">Auto-calculated from saved daily data — current week</span>
+        <button class="btn btn-sm" onclick="refreshWeek()">Refresh</button>
+      </div>
+      <div class="pip-row" id="pip-row"></div>
+      <div class="week-stats">
+        <div class="stat-card"><div class="stat-val" id="w-miss">0</div><div class="stat-label">Miss</div></div>
+        <div class="stat-card"><div class="stat-val" id="w-solid">0</div><div class="stat-label">Solid</div></div>
+        <div class="stat-card"><div class="stat-val" id="w-ideal">0</div><div class="stat-label">Ideal</div></div>
+        <div class="stat-card"><div class="stat-val" id="w-win">0</div><div class="stat-label">Win</div></div>
+        <div class="stat-card"><div class="stat-val" id="w-salvage">0</div><div class="stat-label">Salvage</div></div>
+      </div>
+      <div class="grid-2" style="margin-bottom:13px">
+        <div class="stat-card"><div class="stat-val" id="w-goal" style="font-size:14px">—</div><div class="stat-label">Top Goal</div></div>
+      </div>
+      <div class="divider"></div>
+      <div style="display:flex;flex-direction:column;gap:11px">
+        <div class="field"><span class="field-label">What kept ruining the project block?</span><textarea id="wr-block" rows="2" oninput="saveWeekField('block',this.value)" placeholder="Patterns, not excuses."></textarea></div>
+        <div class="field"><span class="field-label">What helped most?</span><textarea id="wr-helped" rows="2" oninput="saveWeekField('helped',this.value)" placeholder="What actually worked."></textarea></div>
+        <div class="field"><span class="field-label">Main focus for next week</span><textarea id="wr-focus" rows="2" oninput="saveWeekField('focus',this.value)" placeholder="One or two things. Not a list."></textarea></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Danger zone -->
+  <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-sm" onclick="MC.open('Reset Today','Clear all data for today. Cannot be undone.',resetToday)">Reset Today</button>
+    <button class="btn btn-sm btn-danger" onclick="MC.open('Reset ALL Data','This will permanently delete every saved day. Cannot be undone.',resetAll)">Reset All Data</button>
+  </div>
+
+</div>
+</div>
+
+<!-- ── SLEEP TRACKER TAB ── -->
+<div class="tab-panel" id="panel-sleep">
+<div class="page-wrap-wide">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:6px">
+      <button class="btn btn-nav" onclick="navSleepMonth(-1)">‹</button>
+      <span style="font-family:var(--font-mono);font-size:14px;font-weight:500;min-width:140px;text-align:center" id="sleep-month-label">—</span>
+      <button class="btn btn-nav" onclick="navSleepMonth(1)">›</button>
+      <button class="btn btn-sm" onclick="goSleepNow()">This Month</button>
+    </div>
+    <span class="help-text">Entry editor tracks selected date in header</span>
+  </div>
+
+  <!-- Daily entry card -->
+  <div class="card" style="margin-top:0;margin-bottom:14px">
+    <div class="card-header" style="cursor:default">
+      <div class="card-title"><div class="card-title-dot blue"></div><span id="sleep-entry-date-lbl">—</span></div>
+    </div>
+    <div class="card-body">
+      <div class="grid-2" style="gap:20px">
+        <div>
+          <div class="grid-2" style="margin-bottom:10px">
+            <div class="field"><span class="field-label">Sleep Time</span><input type="time" id="sl-time" oninput="onSleepChange()"></div>
+            <div class="field"><span class="field-label">Wake Time</span><input type="time" id="sl-wake" oninput="onSleepChange()"></div>
+          </div>
+          <div class="field"><span class="field-label">Notes (optional)</span><input type="text" id="sl-notes" placeholder="e.g. nap included, fragmented" oninput="onSleepChange()"></div>
+          <div style="margin-top:10px"><button class="sl-nap-pill" id="sl-nap-pill" onclick="openNapModal()">+ Nap</button></div>
+        </div>
+        <div style="display:flex;flex-direction:column;justify-content:center;gap:4px">
+          <div class="sleep-dur-big" id="sl-dur-display">—</div>
+          <div class="sleep-dur-label">Duration</div>
+          <div class="sl-dur-breakdown" id="sl-dur-breakdown" style="display:none"></div>
+          <div class="help-text" style="margin-top:8px" id="sl-entry-status">No entry yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Monthly summary -->
+  <div class="sleep-stat-grid" id="sleep-stat-grid">
+    <div class="stat-card"><div class="stat-val" id="sm-avg-dur">—</div><div class="stat-label">Avg Duration</div></div>
+    <div class="stat-card"><div class="stat-val" id="sm-avg-sleep" style="font-size:16px">—</div><div class="stat-label">Avg Sleep Onset</div></div>
+    <div class="stat-card"><div class="stat-val" id="sm-avg-wake" style="font-size:16px">—</div><div class="stat-label">Avg Wake Time</div></div>
+    <div class="stat-card"><div class="stat-val" id="sm-total-sleep" style="font-size:16px">—</div><div class="stat-label">Total Sleep</div></div>
+    <div class="stat-card"><div class="stat-val" id="sm-total-awake" style="font-size:16px">—</div><div class="stat-label">Total Awake</div></div>
+  </div>
+
+  <!-- Duration trend -->
+  <div class="card" style="margin-top:14px">
+    <div class="card-header" onclick="toggleCard('sl-duration')">
+      <div class="card-title"><div class="card-title-dot"></div>Duration Trend</div>
+      <span class="card-toggle open" id="caret-sl-duration">▾</span>
+    </div>
+    <div class="card-body" id="body-sl-duration" style="padding:14px">
+      <canvas id="ch-duration" height="170"></canvas>
+    </div>
+  </div>
+
+  <!-- Block timeline -->
+  <div class="card" style="margin-top:14px">
+    <div class="card-header" onclick="toggleCard('sl-timeline')">
+      <div class="card-title"><div class="card-title-dot"></div>24h Sleep Block Map</div>
+      <span class="card-toggle open" id="caret-sl-timeline">▾</span>
+    </div>
+    <div class="card-body" id="body-sl-timeline" style="padding:14px 12px">
+      <div id="ch-timeline"></div>
+    </div>
+  </div>
+
+  <!-- Scatter -->
+  <div class="card" style="margin-top:14px">
+    <div class="card-header" onclick="toggleCard('sl-scatter')">
+      <div class="card-title"><div class="card-title-dot"></div>Sleep / Wake Scatter</div>
+      <span class="card-toggle open" id="caret-sl-scatter">▾</span>
+    </div>
+    <div class="card-body" id="body-sl-scatter" style="padding:14px">
+      <canvas id="ch-scatter" height="310"></canvas>
+    </div>
+  </div>
+
+  <!-- Monthly log -->
+  <div class="card" style="margin-top:14px">
+    <div class="card-header" onclick="toggleCard('sl-log')">
+      <div class="card-title"><div class="card-title-dot green"></div>Monthly Log</div>
+      <span class="card-toggle" id="caret-sl-log">▾</span>
+    </div>
+    <div class="card-body collapsed" id="body-sl-log" style="padding:0;overflow:auto">
+      <table class="sleep-log-table">
+        <thead><tr><th>Date</th><th>Sleep</th><th>Wake</th><th>Duration</th><th>Nap</th><th>Notes</th></tr></thead>
+        <tbody id="sl-log-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ── HEALTH TAB ── -->
+<div class="tab-panel" id="panel-health">
+<div class="page-wrap-wide">
+
+  <!-- Nav + view mode -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:6px">
+      <button class="btn btn-nav" onclick="navHealthPeriod(-1)">‹</button>
+      <span style="font-family:var(--font-mono);font-size:14px;font-weight:500;min-width:180px;text-align:center" id="health-period-label">—</span>
+      <button class="btn btn-nav" onclick="navHealthPeriod(1)">›</button>
+      <button class="btn btn-sm" onclick="goHealthNow()">Now</button>
+    </div>
+    <div style="display:flex;gap:5px">
+      <button class="btn btn-sm" id="btn-hv-week"  onclick="setHealthViewMode('week')">Week</button>
+      <button class="btn btn-sm btn-accent" id="btn-hv-month" onclick="setHealthViewMode('month')">Month</button>
+      <button class="btn btn-sm" id="btn-hv-year"  onclick="setHealthViewMode('year')">Year</button>
+    </div>
+  </div>
+
+  <!-- Entry card -->
+  <div class="card" style="margin-top:0;margin-bottom:14px">
+    <div class="card-header" style="cursor:default">
+      <div class="card-title"><div class="card-title-dot blue"></div><span id="hw-entry-date-lbl">—</span></div>
+      <span class="help-text" id="hw-entry-status" style="font-size:11px">No entry yet.</span>
+    </div>
+    <div class="card-body">
+      <div class="grid-2" style="gap:20px">
+        <div class="field">
+          <span class="field-label">Weight (kg)</span>
+          <input type="number" id="hw-weight" step="0.1" min="0" max="300" placeholder="e.g. 78.5" oninput="onWeightChange()">
+        </div>
+        <div class="field">
+          <span class="field-label">Notes (optional)</span>
+          <input type="text" id="hw-notes" placeholder="e.g. after breakfast, post-workout" oninput="onWeightChange()">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="sleep-stat-grid">
+    <div class="stat-card"><div class="stat-val" id="hw-stat-avg" style="font-size:16px">—</div><div class="stat-label">Avg Weight</div></div>
+    <div class="stat-card"><div class="stat-val" id="hw-stat-min" style="font-size:16px">—</div><div class="stat-label">Min</div></div>
+    <div class="stat-card"><div class="stat-val" id="hw-stat-max" style="font-size:16px">—</div><div class="stat-label">Max</div></div>
+    <div class="stat-card"><div class="stat-val" id="hw-stat-trend" style="font-size:22px">—</div><div class="stat-label">Trend</div></div>
+  </div>
+
+  <!-- Weight chart -->
+  <div class="card" style="margin-top:14px">
+    <div class="card-header" style="cursor:default">
+      <div class="card-title"><div class="card-title-dot"></div>Weight Trend</div>
+    </div>
+    <div class="card-body" style="padding:14px"><canvas id="ch-weight" height="170"></canvas></div>
+  </div>
+
+  <!-- Log (collapsible, starts collapsed) -->
+  <div class="card" style="margin-top:14px">
+    <div class="card-header" onclick="toggleCard('hw-log')">
+      <div class="card-title"><div class="card-title-dot green"></div>Log</div>
+      <span class="card-toggle" id="caret-hw-log">▾</span>
+    </div>
+    <div class="card-body collapsed" id="body-hw-log" style="padding:0;overflow:auto">
+      <table class="sleep-log-table">
+        <thead><tr><th>Date</th><th>Weight</th><th>Notes</th></tr></thead>
+        <tbody id="hw-log-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Mood -->
+  <div class="card" style="margin-top:14px">
+    <div class="card-header" style="cursor:default">
+      <div class="card-title"><div class="card-title-dot" style="background:var(--purple)"></div>Mood — <span style="color:var(--text3);font-size:9px;letter-spacing:.1em">today</span></div>
+      <button class="btn btn-sm btn-icon" onclick="toggleMoodHistory()" title="Mood history" style="font-size:16px;line-height:1;padding:2px 8px">···</button>
+    </div>
+    <div class="card-body">
+      <div style="margin-bottom:12px">
+        <span class="field-label" style="display:block;margin-bottom:8px">Operating State</span>
+        <div id="mood-state-grid" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+      </div>
+      <div style="margin-bottom:12px">
+        <span class="field-label" style="display:block;margin-bottom:8px">Modifiers — pick up to 2</span>
+        <div id="mood-mod-grid" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+      </div>
+      <div class="field">
+        <span class="field-label">Note (optional)</span>
+        <input type="text" id="mood-note" placeholder="Brief context..." oninput="saveMoodField('note',this.value)">
+      </div>
+    </div>
+    <!-- History panel (hidden by default) -->
+    <div id="mood-history-panel" style="display:none;border-top:1px solid var(--border)">
+      <div style="padding:12px 15px">
+        <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;color:var(--text3);text-transform:uppercase;margin-bottom:10px">Past 7 Days</div>
+        <div id="mood-history-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supplements -->
+  <div class="card" style="margin-top:14px">
+    <div class="card-header" style="cursor:default">
+      <div class="card-title"><div class="card-title-dot"></div>Supplements — <span style="color:var(--text3);font-size:9px;letter-spacing:.1em">today</span></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-icon" onclick="toggleSuppHistory()" title="Supplement history" style="font-size:16px;line-height:1;padding:2px 8px">···</button>
+        <button class="btn btn-sm btn-accent" onclick="addSupplement()">+ Add</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div id="supp-list"></div>
+    </div>
+    <!-- Supplement history panel (hidden by default) -->
+    <div id="supp-history-panel" style="display:none;border-top:1px solid var(--border)">
+      <div style="padding:12px 15px;overflow-x:auto">
+        <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;color:var(--text3);text-transform:uppercase;margin-bottom:10px">Past 7 Days</div>
+        <div id="supp-history-list"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ── ADMIN TAB ── -->
+<div class="tab-panel" id="panel-admin">
+<div class="page-wrap">
+
+  <div style="margin-bottom:16px">
+    <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--text3);margin-bottom:4px">Control Centre</div>
+    <p style="font-size:13px;color:var(--text2)">Shape the dashboard without touching code. Changes save immediately.</p>
+  </div>
+
+  <div class="admin-section-tabs" id="admin-tabs">
+    <button class="admin-tab active" onclick="switchAdminTab('structure')">Structure</button>
+    <button class="admin-tab" onclick="switchAdminTab('sections')">Sections</button>
+    <button class="admin-tab" onclick="switchAdminTab('goals')">Goals</button>
+    <button class="admin-tab" onclick="switchAdminTab('labels')">Labels & Text</button>
+    <button class="admin-tab" onclick="switchAdminTab('backup')">Data & Backup</button>
+    <button class="admin-tab" onclick="switchAdminTab('appearance')">Appearance</button>
+  </div>
+
+  <div class="admin-content-section active" id="admin-structure-panel">
+    <div class="admin-panel"><div class="admin-panel-header"><span class="admin-panel-title">Tab Registry</span><button class="btn btn-sm btn-accent" onclick="adminAddTab()">+ New Tab</button></div><div class="admin-panel-body" id="admin-tab-list"></div></div>
+  </div>
+
+  <div class="admin-content-section" id="admin-sections-panel">
+    <div class="admin-panel"><div class="admin-panel-header"><span class="admin-panel-title">Planner Sections</span></div><div class="admin-panel-body" id="admin-planner-sections-list"></div></div>
+    <div class="admin-panel" style="margin-top:14px"><div class="admin-panel-header"><span class="admin-panel-title">Generic Tab Sections</span><div style="display:flex;gap:6px;align-items:center"><select id="admin-gen-tab-select" style="width:160px;padding:4px 8px;font-size:11px" onchange="adminSelectGenTab(this.value)"><option value="">— select tab —</option></select><button class="btn btn-sm btn-accent" id="admin-add-section-btn" onclick="adminAddSection()" style="display:none">+ Section</button></div></div><div class="admin-panel-body" id="admin-sections-list"><p class="help-text">Select a generic tab above to manage its sections.</p></div></div>
+  </div>
+
+  <div class="admin-content-section" id="admin-goals-panel">
+    <div class="admin-panel"><div class="admin-panel-header"><span class="admin-panel-title">Goal Groups</span><button class="btn btn-sm btn-accent" onclick="adminAddGoalGroup()">+ New Group</button></div><div class="admin-panel-body" id="admin-goal-groups-list"></div></div>
+    <div class="admin-panel" style="margin-top:14px"><div class="admin-panel-header"><span class="admin-panel-title">Goals</span><button class="btn btn-sm btn-accent" onclick="adminAddGoal()">+ New Goal</button></div><div class="admin-panel-body" id="admin-goals-list"></div></div>
+  </div>
+
+  <div class="admin-content-section" id="admin-labels-panel">
+    <div class="admin-panel"><div class="admin-panel-header"><span class="admin-panel-title">Labels & Text Registry</span><button class="btn btn-sm" onclick="adminResetLabels()">Restore Defaults</button></div><div class="admin-panel-body" id="admin-labels-list"></div></div>
+  </div>
+
+  <div class="admin-content-section" id="admin-backup-panel">
+    <div class="admin-panel"><div class="admin-panel-header"><span class="admin-panel-title">Export</span></div><div class="admin-panel-body"><div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn" onclick="exportData()">Export Data</button><button class="btn" onclick="exportSettings()">Export Settings</button><button class="btn btn-accent" onclick="exportFull()">Export Full Backup</button></div></div></div>
+    <div class="admin-panel" style="margin-top:14px"><div class="admin-panel-header"><span class="admin-panel-title">Import</span></div><div class="admin-panel-body"><div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn" onclick="triggerImport('data')">Import Data</button><button class="btn" onclick="triggerImport('settings')">Import Settings</button><button class="btn btn-accent" onclick="triggerImport('full')">Import Full Backup</button></div><p class="help-text" style="margin-top:10px">Data imports merge by date key. Settings imports fully replace config.</p></div></div>
+    <div class="admin-panel" style="margin-top:14px"><div class="admin-panel-header"><span class="admin-panel-title">Danger Zone</span></div><div class="admin-panel-body"><div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn btn-sm" onclick="MC.open('Reset Today','Clear all data for today.',resetToday)">Reset Today</button><button class="btn btn-sm btn-danger" onclick="MC.open('Reset ALL Data','Permanently delete every saved day.',resetAll)">Reset All Data</button><button class="btn btn-sm btn-danger" onclick="MC.open('Reset Settings','Reset ALL settings to defaults. Data is safe.',resetSettings)">Reset Settings</button></div></div></div>
+  </div>
+
+  <div class="admin-content-section" id="admin-appearance-panel">
+    <div class="admin-panel"><div class="admin-panel-header"><span class="admin-panel-title">Appearance</span></div><div class="admin-panel-body">
+      <div class="grid-2" style="margin-bottom:14px"><div class="field"><span class="field-label">App Title</span><input type="text" id="admin-app-title" value="" oninput="updateAppTitle(this.value)"></div><div class="field"><span class="field-label">Density</span><select id="admin-density" onchange="updateDensity(this.value)"><option value="normal">Normal</option><option value="compact">Compact</option></select></div></div>
+      <div class="grid-2" style="margin-bottom:14px"><div class="field"><span class="field-label">Font Scale</span><select id="admin-font-scale" onchange="updateFontScale(this.value)"><option value="small">Small</option><option value="normal">Normal</option><option value="large">Large</option></select></div><div class="field"><span class="field-label">Theme</span><button class="btn" onclick="toggleTheme()" style="margin-top:4px">Toggle Light/Dark</button></div></div>
+      <div class="field" style="margin-bottom:14px"><span class="field-label">Accent Colour</span><div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap" id="accent-picker"></div></div>
+      <div><span class="field-label" style="display:block;margin-bottom:8px">Subheader hidden on tabs</span><div id="admin-subheader-toggle"></div></div>
+    </div></div>
+  </div>
+
+</div>
+</div>
+
+<!-- Generic tab panels injected by JS -->
+<div id="generic-panels-container"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPTS — load order matters: dependencies before consumers
+═══════════════════════════════════════════════════════════ -->
+<script src="storage.js"></script>
+<script src="config.js"></script>
+<script src="modules.js"></script>
+<script src="planner.js"></script>
+<script src="sleep.js"></script>
+<script src="health.js"></script>
+<script src="admin.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
