@@ -3,7 +3,8 @@
     "allow": [
       "Bash(node:*)",
       "Bash(python3:*)",
-      "Bash(wc -l /Users/elnaggar/Documents/Operator/*.js)"
+      "Bash(wc -l /Users/elnaggar/Documents/Operator/*.js)",
+      "Bash(wc:*)"
     ]
   }
 }

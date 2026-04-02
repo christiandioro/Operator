@@ -6,11 +6,9 @@ let healthViewYear, healthViewMonth;
 let healthViewMode = 'month';
 let healthViewWeekStart; // YYYY-MM-DD Monday of current week
 
-/* ── SUPPLEMENTS — persisted in localStorage ── */
-function getSupplements(){
-  try{return JSON.parse(localStorage.getItem('healthSupplements')||'[]');}catch(e){return[];}
-}
-function saveSupplements(arr){localStorage.setItem('healthSupplements',JSON.stringify(arr));}
+/* ── SUPPLEMENTS — persisted via LISTS global ── */
+function getSupplements(){return LISTS.healthSupplements||[];}
+function saveSupplements(arr){LISTS.healthSupplements=arr;saveListsLocal();}
 
 /* ── WEIGHT ENTRY ── */
 let _hwTimer = null;

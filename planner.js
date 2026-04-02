@@ -28,19 +28,19 @@ const SW_DEFAULT = [
 ];
 
 function getBaselineItems(){
-  try{return JSON.parse(localStorage.getItem('baselineItems')||'null')||BL_DEFAULT.map(x=>({...x}));}catch(e){return BL_DEFAULT.map(x=>({...x}));}
+  return(LISTS.baselineItems&&LISTS.baselineItems.length)?LISTS.baselineItems:BL_DEFAULT.map(x=>({...x}));
 }
-function saveBaselineItems(arr){localStorage.setItem('baselineItems',JSON.stringify(arr));}
+function saveBaselineItems(arr){LISTS.baselineItems=arr;saveListsLocal();}
 
 function getSalvageItems(){
-  try{return JSON.parse(localStorage.getItem('salvageItems')||'null')||SAL_DEFAULT.map(x=>({...x}));}catch(e){return SAL_DEFAULT.map(x=>({...x}));}
+  return(LISTS.salvageItems&&LISTS.salvageItems.length)?LISTS.salvageItems:SAL_DEFAULT.map(x=>({...x}));
 }
-function saveSalvageItems(arr){localStorage.setItem('salvageItems',JSON.stringify(arr));}
+function saveSalvageItems(arr){LISTS.salvageItems=arr;saveListsLocal();}
 
 function getSoftwareOptions(){
-  try{return JSON.parse(localStorage.getItem('softwareOptions')||'null')||SW_DEFAULT.map(x=>({...x}));}catch(e){return SW_DEFAULT.map(x=>({...x}));}
+  return(LISTS.softwareOptions&&LISTS.softwareOptions.length)?LISTS.softwareOptions:SW_DEFAULT.map(x=>({...x}));
 }
-function saveSoftwareOptions(arr){localStorage.setItem('softwareOptions',JSON.stringify(arr));}
+function saveSoftwareOptions(arr){LISTS.softwareOptions=arr;saveListsLocal();}
 
 /* ── BASELINE ITEM MANAGEMENT ── */
 function addBaselineItem(){
@@ -546,10 +546,8 @@ function _stopSwTimer(){
 }
 
 /* ── TO-DO LIST ── */
-function getTodos(){
-  try{return JSON.parse(localStorage.getItem('plannerTodos')||'[]');}catch(e){return[];}
-}
-function saveTodos(arr){localStorage.setItem('plannerTodos',JSON.stringify(arr));}
+function getTodos(){return LISTS.plannerTodos||[];}
+function saveTodos(arr){LISTS.plannerTodos=arr;saveListsLocal();}
 
 function checkOverdueTodos(){
   const todos=getTodos();

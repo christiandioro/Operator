@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Operator</title>
 <link rel="stylesheet" href="styles.css">
+<style>
+/* Auth control sits inline in topbar-right */
+#auth-control{display:flex;align-items:center;gap:4px;margin-right:6px;}
+#auth-logged-in{align-items:center;gap:4px;flex-wrap:wrap;}
+#auth-email-lbl{font-size:11px;color:var(--text3);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-mono);}
+#auth-status{font-size:12px;color:var(--text3);margin-top:6px;min-height:16px;}
+</style>
 </head>
 <body>
 
@@ -81,6 +88,20 @@
   </div>
 </div>
 
+<!-- ── AUTH MODAL ── -->
+<div class="modal-bg" id="auth-modal">
+  <div class="modal">
+    <h3>Sign In</h3>
+    <p style="margin-bottom:10px;color:var(--text2);font-size:13px">Enter your email — we'll send a magic link.</p>
+    <div class="field"><input type="email" id="auth-email-input" placeholder="you@example.com" style="margin-top:0"></div>
+    <p id="auth-status"></p>
+    <div class="modal-actions">
+      <button class="btn btn-sm" onclick="closeSignInModal()">Cancel</button>
+      <button class="btn btn-sm btn-accent" id="auth-send-btn" onclick="submitSignIn()">Send Link</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════════════════════════════════════════════
      TOP BAR
 ═══════════════════════════════════════════════════════════ -->
@@ -90,6 +111,18 @@
   </div>
   <div id="tab-bar"><!-- injected by renderTabBar() --></div>
   <div id="topbar-right">
+    <!-- Auth control — hidden until supabase.js initialises -->
+    <div id="auth-control">
+      <div id="auth-logged-out" style="display:none;align-items:center;gap:4px">
+        <button class="btn btn-sm" onclick="openSignInModal()">Sign in</button>
+      </div>
+      <div id="auth-logged-in" style="display:none">
+        <span id="auth-email-lbl"></span>
+        <button class="btn btn-sm" onclick="MC.open('Push to Cloud','Upload local data to cloud? This will overwrite cloud data.',pushLocalToCloud)" title="Push Local → Cloud">↑ Push</button>
+        <button class="btn btn-sm" onclick="MC.open('Pull from Cloud','Download cloud data and replace local? Unsaved local changes may be lost.',pullCloudToLocal)" title="Pull Cloud → Local">↓ Pull</button>
+        <button class="btn btn-sm" onclick="MC.open('Sign Out','Sign out of your account?',signOut)">Sign out</button>
+      </div>
+    </div>
     <div class="save-indicator">
       <div class="save-dot" id="save-dot"></div>
       <span id="save-label">—</span>
@@ -140,7 +173,7 @@
   <div class="card" style="margin-top:10px;">
     <div class="card-body" style="padding:10px 14px;">
       <span class="field-label" style="display:block;margin-bottom:6px;">Quick Note</span>
-      <textarea id="quick-note" rows="2" placeholder="Jot something down…" style="width:100%;resize:vertical;" oninput="localStorage.setItem('quickNote',this.value)"></textarea>
+      <textarea id="quick-note" rows="2" placeholder="Jot something down…" style="width:100%;resize:vertical;" oninput="LISTS.quickNote=this.value;saveListsLocal()"></textarea>
     </div>
   </div>
 
@@ -575,8 +608,11 @@
 <!-- ═══════════════════════════════════════════════════════════
      SCRIPTS — load order matters: dependencies before consumers
 ═══════════════════════════════════════════════════════════ -->
+<!-- Supabase browser client (exposes global `supabase`) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="storage.js"></script>
 <script src="config.js"></script>
+<script src="supabase.js"></script>
 <script src="modules.js"></script>
 <script src="planner.js"></script>
 <script src="sleep.js"></script>

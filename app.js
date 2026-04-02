@@ -141,6 +141,15 @@ function wireModalEvents(){
   document.getElementById('modal-nap').addEventListener('click',function(e){if(e.target===this)MN.cancel();});
   document.getElementById('mn-start').addEventListener('keydown',function(e){if(e.key==='Escape')MN.cancel();});
   document.getElementById('mn-end').addEventListener('keydown',function(e){if(e.key==='Enter')saveNap();if(e.key==='Escape')MN.cancel();});
+  // Auth modal
+  const am=document.getElementById('auth-modal');
+  if(am){
+    am.addEventListener('click',function(e){if(e.target===this)closeSignInModal();});
+    document.getElementById('auth-email-input').addEventListener('keydown',function(e){
+      if(e.key==='Enter')submitSignIn();
+      if(e.key==='Escape')closeSignInModal();
+    });
+  }
 }
 
 function wireChecklistSync(){
@@ -166,7 +175,8 @@ function wireResizeHandler(){
 
 /* ── INIT ── */
 function init(){
-  loadAll();
+  // Data already loaded by bootApp() before this is called.
+  // On re-renders (import, resetSettings, signout) data is already in memory.
   seedSleep();
 
   // Apply theme
@@ -211,7 +221,7 @@ function init(){
 
   // Quick Note
   const qn=document.getElementById('quick-note');
-  if(qn)qn.value=localStorage.getItem('quickNote')||'';
+  if(qn)qn.value=LISTS.quickNote||'';
 
   // Check for overdue todos and request notification permission
   checkOverdueTodos();
@@ -224,10 +234,32 @@ function init(){
 }
 
 /* ── BOOT ── */
+async function bootApp(){
+  // 1. Load local data first (fast, works offline)
+  loadAllLocal();
+
+  // 2. Init Supabase and determine auth state (defined in supabase.js)
+  //    No-op if CDN is unavailable or config is not filled in.
+  if(typeof initSupabase === 'function'){
+    try{ await initSupabase(); }
+    catch(err){ console.warn('Supabase unavailable, running locally:', err); }
+  }
+
+  // 3. If logged in, load cloud data (overwrites local)
+  if(typeof currentUser !== 'undefined' && currentUser && typeof loadAllCloud === 'function'){
+    const ok = await loadAllCloud().catch(()=>false);
+    if(ok) saveAllLocal(); // keep local cache in sync
+  }
+
+  // 4. Update auth UI, then render
+  if(typeof updateAuthUI === 'function') updateAuthUI();
+  init();
+}
+
 wireModalEvents();
 wireChecklistSync();
 wireSalvageEvents();
 wireResizeHandler();
 initSleepTooltips();
 initHealthTooltips();
-init();
+bootApp();

@@ -20,22 +20,34 @@ function calcSleepDur(sm,wm){if(sm==null||wm==null)return null;let d=wm-sm;if(d<
 function circMean(arr){if(!arr.length)return null;let sx=0,sy=0;for(const m of arr){const a=(m/1440)*2*Math.PI;sx+=Math.cos(a);sy+=Math.sin(a)}sx/=arr.length;sy/=arr.length;let a=Math.atan2(sy,sx);if(a<0)a+=2*Math.PI;return Math.round((a/(2*Math.PI))*1440)}
 
 /* ── STORAGE KEYS ── */
-const STORAGE_DATA_KEY = 'op_data_v3';
+const STORAGE_DATA_KEY     = 'op_data_v3';
 const STORAGE_SETTINGS_KEY = 'op_settings_v3';
-const STORAGE_WEEK_KEY = 'op_week_v3';
+const STORAGE_WEEK_KEY     = 'op_week_v3';
+const STORAGE_LISTS_KEY    = 'op_lists_v1';
 
 /* ── GLOBALS ── */
 let DATA = {};
 let WEEK = {};
 let CFG  = {};
 
+// LISTS holds all the small editable lists that were previously stored in separate
+// localStorage keys. Centralising them makes cloud sync straightforward.
+let LISTS = {
+  quickNote:        '',
+  baselineItems:    null,  // null → use in-code BL_DEFAULT
+  salvageItems:     null,  // null → use in-code SAL_DEFAULT
+  softwareOptions:  null,  // null → use in-code SW_DEFAULT
+  plannerTodos:     [],
+  healthSupplements:[],
+};
+
 let saveTimer = null;
 let lastSaved = null;
 let dirtyData = false;
 let dirtySettings = false;
 
-/* ── LOAD ── */
-function loadAll(){
+/* ── LOCAL LOAD ── */
+function loadAllLocal(){
   try{ DATA = JSON.parse(localStorage.getItem(STORAGE_DATA_KEY)||'{}'); }catch(e){DATA={};}
   try{ WEEK = JSON.parse(localStorage.getItem(STORAGE_WEEK_KEY)||'{}'); }catch(e){WEEK={};}
   try{
@@ -43,6 +55,50 @@ function loadAll(){
     CFG = raw ? JSON.parse(raw) : buildDefaultCFG();
     migrateSettings();
   }catch(e){ CFG = buildDefaultCFG(); }
+  loadListsLocal();
+  _migrateLegacyLists(); // one-time: pull old separate keys into LISTS
+}
+
+function loadListsLocal(){
+  try{
+    const raw = localStorage.getItem(STORAGE_LISTS_KEY);
+    if(raw) Object.assign(LISTS, JSON.parse(raw));
+  }catch(e){}
+}
+
+// Pull old standalone localStorage keys into LISTS (runs once; harmless thereafter)
+function _migrateLegacyLists(){
+  let changed = false;
+  const map = {
+    baselineItems:'baselineItems', salvageItems:'salvageItems',
+    softwareOptions:'softwareOptions', plannerTodos:'plannerTodos',
+    healthSupplements:'healthSupplements'
+  };
+  for(const [lk, sk] of Object.entries(map)){
+    if(LISTS[lk] == null || (Array.isArray(LISTS[lk]) && LISTS[lk].length === 0)){
+      const raw = localStorage.getItem(sk);
+      if(raw){ try{ LISTS[lk] = JSON.parse(raw); changed = true; }catch(e){} }
+    }
+  }
+  if(!LISTS.quickNote){
+    const qn = localStorage.getItem('quickNote');
+    if(qn){ LISTS.quickNote = qn; changed = true; }
+  }
+  if(changed) saveListsLocal();
+}
+
+/* ── LOCAL SAVE ── */
+function saveListsLocal(){
+  localStorage.setItem(STORAGE_LISTS_KEY, JSON.stringify(LISTS));
+  // Piggyback cloud save (no-op when not logged in; defined in supabase.js)
+  if(typeof _scheduleCloudSave === 'function') _scheduleCloudSave();
+}
+
+function saveAllLocal(){
+  localStorage.setItem(STORAGE_DATA_KEY,     JSON.stringify(DATA));
+  localStorage.setItem(STORAGE_WEEK_KEY,     JSON.stringify(WEEK));
+  localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(CFG));
+  localStorage.setItem(STORAGE_LISTS_KEY,    JSON.stringify(LISTS));
 }
 
 /* ── LABEL HELPER ── */
@@ -60,12 +116,14 @@ function saveDataNow(){
   localStorage.setItem(STORAGE_WEEK_KEY, JSON.stringify(WEEK));
   dirtyData = false;
   touchSaveIndicator();
+  if(typeof _scheduleCloudSave === 'function') _scheduleCloudSave();
 }
 
 function saveSettingsNow(){
   localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(CFG));
   dirtySettings = false;
   touchSaveIndicator();
+  if(typeof _scheduleCloudSave === 'function') _scheduleCloudSave();
 }
 
 function saveAll(){
@@ -77,10 +135,10 @@ function touchSaveIndicator(){
   lastSaved = new Date();
   const dot = document.getElementById('save-dot');
   const lbl = document.getElementById('save-label');
-  if(dot) dot.className='save-dot saved';
+  if(dot){ dot.className='save-dot saved'; dot.style.background=''; }
   if(lbl) lbl.textContent = 'Saved ' + lastSaved.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(()=>{ if(dot) dot.className='save-dot'; },5000);
+  saveTimer = setTimeout(()=>{ if(dot){ dot.className='save-dot'; dot.style.background=''; } },5000);
 }
 
 function queueDataSave(){
@@ -100,13 +158,13 @@ function queueSettingsSave(){
 // Periodic autosave every 60s
 setInterval(()=>{if(dirtyData||dirtySettings)saveAll();},60000);
 
-// Save on beforeunload
-window.addEventListener('beforeunload',()=>{if(dirtyData||dirtySettings)saveAll();});
+// Save on beforeunload (local only — async cloud saves may not finish in time)
+window.addEventListener('beforeunload',()=>{if(dirtyData||dirtySettings)saveAllLocal();});
 
 /* ── EXPORT / IMPORT ── */
 function exportData(){dlJSON({data:DATA,week:WEEK},'operator-data-'+todayKey()+'.json');}
 function exportSettings(){dlJSON(CFG,'operator-settings-'+todayKey()+'.json');}
-function exportFull(){dlJSON({data:DATA,week:WEEK,settings:CFG},'operator-full-'+todayKey()+'.json');}
+function exportFull(){dlJSON({data:DATA,week:WEEK,settings:CFG,lists:LISTS},'operator-full-'+todayKey()+'.json');}
 function dlJSON(obj,name){const b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();}
 
 function triggerImport(mode){
@@ -122,8 +180,13 @@ function handleImport(e){
       const p=JSON.parse(ev.target.result);
       if(mode==='data'){if(p.data)Object.assign(DATA,p.data);if(p.week)Object.assign(WEEK,p.week);}
       else if(mode==='settings'){if(p.goals||p.tabs)Object.assign(CFG,p);else if(typeof p==='object')Object.assign(CFG,p);}
-      else{if(p.data)Object.assign(DATA,p.data);if(p.week)Object.assign(WEEK,p.week);if(p.settings)Object.assign(CFG,p.settings);}
-      saveAll();init();alert('Import successful.');
+      else{
+        if(p.data)Object.assign(DATA,p.data);
+        if(p.week)Object.assign(WEEK,p.week);
+        if(p.settings)Object.assign(CFG,p.settings);
+        if(p.lists)Object.assign(LISTS,p.lists);
+      }
+      saveAll();saveListsLocal();init();alert('Import successful.');
     }catch(err){alert('Import failed: '+err.message);}
   };
   reader.readAsText(file);e.target.value='';
